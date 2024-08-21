@@ -106,49 +106,10 @@ export async function fetchUser(token: string | null): Promise<User | undefined>
   }
 }
 
-export const registerForPushNotificationsAsync = async () => {
-  try {
-    const { status: existingStatus } = await Notifications.getPermissionsAsync();
-    let finalStatus = existingStatus;
 
-    if (existingStatus !== 'granted') {
-      const { status } = await Notifications.requestPermissionsAsync();
-      finalStatus = status;
-    }
-
-    if (finalStatus !== 'granted') {
-      console.log('Failed to get push token for push notification!');
-      return;
-    }
-
-    // Get the Expo push token
-    const token = (await Notifications.getExpoPushTokenAsync()).data;
-    console.log('Expo Push Token:', token);
-
-    // Store the token locally (optional)
-    await AsyncStorage.setItem('expo_push_token', token);
-
-    // Optionally, send this token to your backend
-    await sendTokenToBackend(token);
-
-    return token;
-  } catch (error) {
-    console.error('Error getting push notification token:', error);
-  }
-};
 
 // Function to send the token to your backend
-const sendTokenToBackend = async (token:any) => {
-  try {
-    /* await axiosInstance.post('/v1/notifications/register', {
-      token: token,
-      platform: Platform.OS,
-    }); */
-    console.log('Token sent to backend: ', token);
-  } catch (error) {
-    console.error('Error sending token to backend:', error);
-  }
-};
+
 
 export const initializeApp = async () => {
   const token = await AsyncStorage.getItem('access_token');

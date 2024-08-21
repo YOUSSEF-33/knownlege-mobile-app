@@ -26,6 +26,15 @@ interface Assignment {
   dead_line: string;
 }
 
+interface Quiz {
+  id: string | number;
+  title: string;
+  description: string;
+  total_marks: number;
+  start_at: string;
+  dead_line: string;
+}
+
 interface ContentCategory {
   id: string | number;
   translations: {
@@ -33,6 +42,7 @@ interface ContentCategory {
   };
   lessons: Lesson[];
   assignments: Assignment[];
+  quizzes: Quiz[];
 }
 
 interface Teacher {
@@ -53,6 +63,7 @@ export default function CourseDetailScreen({ id }: any) {
   const [courseDetails, setCourseDetails] = useState<any>({});
   const [expandedLessons, setExpandedLessons] = useState<string | number | null>(null);
   const [expandedAssignments, setExpandedAssignments] = useState<string | number | null>(null);
+  const [expandedQuizzes, setExpandedQuizzes] = useState<string | number | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
   const [scrollY, setScrollY] = useState(0);
 
@@ -74,6 +85,11 @@ export default function CourseDetailScreen({ id }: any) {
             `v1/student/courses/${id}/course-content-categories/${category.id}/assignments`
           );
           category.assignments = assignmentResponse.data.data.items;
+
+          const quizResponse = await axiosInstance.get<{ data: { items: Quiz[] } }>(
+            `v1/student/courses/${id}/course-content-categories/${category.id}/quizzes`
+          );
+          category.quizzes = quizResponse.data.data.items;
         }
 
         const courseResponse = await axiosInstance.get(`v1/student/courses/${id}`);
@@ -120,6 +136,16 @@ export default function CourseDetailScreen({ id }: any) {
     });
   };
 
+  const handleQuizClick = (quizId: string | number, contentCategoryId: string | number, startAt: string) => {
+    const currentDate = new Date();
+    if (new Date(startAt) <= currentDate) {
+      router.push({
+        pathname: "/(routes)/quiz-content",
+        params: { courseId: id, contentCategoryId, quizId },
+      });
+    }
+  };
+
   const handleCategoryClick = (categoryId: string | number) => {
     setActiveCategory(categoryId);
     const index = contentCategories.findIndex(category => category.id === categoryId);
@@ -134,6 +160,20 @@ export default function CourseDetailScreen({ id }: any) {
 
   const toggleAssignments = (categoryId: string | number) => {
     setExpandedAssignments(expandedAssignments === categoryId ? null : categoryId);
+  };
+
+  const toggleQuizzes = (categoryId: string | number) => {
+    setExpandedQuizzes(expandedQuizzes === categoryId ? null : categoryId);
+  };
+
+  const isEnded = (deadline: string) => {
+    const currentDate = new Date();
+    return new Date(deadline) < currentDate;
+  };
+
+  const isStarted = (startAt: string) => {
+    const currentDate = new Date();
+    return new Date(startAt) <= currentDate;
   };
 
   const renderHeader = () => (
@@ -272,12 +312,58 @@ export default function CourseDetailScreen({ id }: any) {
             >
               <View style={styles.lessonInfo}>
                 <Text style={styles.lessonTitle}>{assignment.title}</Text>
-                <Text style={styles.assignmentDeadline}>Deadline: {new Date(assignment.dead_line).toLocaleString()}</Text>
+                <Text style={styles.assignmentDeadline}>
+                  Deadline: {new Date(assignment.dead_line).toLocaleString()}
+                </Text>
+                {isEnded(assignment.dead_line) && (
+                  <Text style={styles.endedTag}>Ended</Text>
+                )}
               </View>
             </TouchableOpacity>
           ))
         ) : (
           <Text style={styles.noContentText}>No assignments available yet.</Text>
+        );
+      })}
+    </View>
+  );
+
+  const renderQuizzes = () => (
+    <View style={styles.lessonsContainer}>
+      <TouchableOpacity onPress={() => toggleQuizzes(activeCategory)} style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>Quizzes</Text>
+        <Ionicons name={expandedQuizzes === activeCategory ? "chevron-up" : "chevron-down"} size={24} color="black" />
+      </TouchableOpacity>
+      {expandedQuizzes === activeCategory && contentCategories.map((category) => {
+        if (category.id !== activeCategory) return null;
+        return category.quizzes?.length > 0 ? (
+          category.quizzes.map((quiz) => {
+            const quizStarted = isStarted(quiz.start_at);
+            return (
+              <TouchableOpacity
+                key={quiz.id}
+                onPress={() => handleQuizClick(quiz.id, category.id, quiz.start_at)}
+                style={styles.lessonItem}
+                disabled={!quizStarted}
+              >
+                <View style={styles.lessonInfo}>
+                  <Text style={styles.lessonTitle}>{quiz.title}</Text>
+                  <Text style={styles.assignmentDeadline}>
+                    Start: {new Date(quiz.start_at).toLocaleString()} | 
+                    Deadline: {new Date(quiz.dead_line).toLocaleString()}
+                  </Text>
+                  {!quizStarted && (
+                    <Text style={styles.notStartedTag}>Not Started Yet</Text>
+                  )}
+                  {quizStarted && isEnded(quiz.dead_line) && (
+                    <Text style={styles.endedTag}>Ended</Text>
+                  )}
+                </View>
+              </TouchableOpacity>
+            );
+          })
+        ) : (
+          <Text style={styles.noContentText}>No quizzes available yet.</Text>
         );
       })}
     </View>
@@ -313,6 +399,7 @@ export default function CourseDetailScreen({ id }: any) {
               {renderCategories()}
               {renderLessons()}
               {renderAssignments()}
+              {renderQuizzes()}
             </View>
           </ScrollView>
         </View>
@@ -518,4 +605,15 @@ const styles = StyleSheet.create({
     fontFamily: "Nunito_400Regular",
     color: '#666',
   },
+  endedTag: {
+    color: 'red',
+    fontFamily: "Nunito_600SemiBold",
+    marginTop: 5,
+  },
+  notStartedTag: {
+    color: '#FFA500',
+    fontFamily: "Nunito_600SemiBold",
+    marginTop: 5,
+  },
 });
+

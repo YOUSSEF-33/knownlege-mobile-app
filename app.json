@@ -17,10 +17,11 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "foregroundImage": "./assets/images/icon.png",
         "backgroundColor": "#ffffff",
         "package": "com.knownlege.knownlegeapp"
       },
+      "googleServicesFile":"./google-services.json",
       "package": "com.knownlege.app"
     },
     "web": {
