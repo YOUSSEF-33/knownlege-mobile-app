@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "895238150249",
+    "project_id": "notification-8477b",
+    "storage_bucket": "notification-8477b.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:895238150249:android:1b6b74ba3b6e0f8ecc6af8",
+        "android_client_info": {
+          "package_name": "com.knownlege.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDXEDlUfcZsMOIet3MXR4Zlf_J3AwbKWuA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

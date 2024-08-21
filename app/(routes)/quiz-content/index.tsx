@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Dimensions, Image, Alert, ActivityIndicator, TextInput } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Dimensions, Image, Alert, ActivityIndicator, TextInput, ProgressBarAndroid } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { useFonts, Raleway_600SemiBold, Raleway_700Bold } from "@expo-google-fonts/raleway";
 import { Nunito_400Regular, Nunito_500Medium, Nunito_700Bold, Nunito_600SemiBold } from "@expo-google-fonts/nunito";
@@ -11,53 +11,21 @@ import * as DocumentPicker from 'expo-document-picker';
 import FileCard from "@/components/cards/fileCard";
 import * as FileSystem from 'expo-file-system';
 
-interface Assignment {
-  id: string | number;
-  title: string;
-  description: string;
-  total_marks: number;
-  dead_line: string;
-  questions: Question[];
-  submitted_at: string | null;
-}
-
-interface Question {
-  id: string | number;
-  title: string;
-  type: string;
-  options: string[];
-  answers: string[];
-  question_attatchments: any[];
-  submitted_answers: SubmittedAnswer[];
-}
-
-interface SubmittedAnswer {
-  id: string | number;
-  text: string;
-  result: number | null;
-  answer_attachments: any[];
-}
-
-interface UploadedFile {
-  uri: string;
-  name: string;
-  type: string;
-}
-
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-export default function AssignmentContentScreen() {
-  const { courseId, contentCategoryId, assignmentId } = useLocalSearchParams();
+export default function QuizContentScreen() {
+  const { courseId, contentCategoryId, quizId } = useLocalSearchParams();
   const { user, loading } = useUser();
   const [fetchingDetails, setFetchingDetails] = useState(true);
-  const [assignment, setAssignment] = useState<Assignment | null>(null);
-  const [selectedAnswers, setSelectedAnswers] = useState<{ [key: string]: string[] }>({});
-  const [uploadedFiles, setUploadedFiles] = useState<{ [key: string]: UploadedFile[] }>({});
-  const [loadingQuestions, setLoadingQuestions] = useState<{ [key: string]: boolean }>({});
-  const [downloadingFiles, setDownloadingFiles] = useState<{ [key: string]: boolean }>({});
+  const [quiz, setQuiz] = useState<any>(null);
+  const [selectedAnswers, setSelectedAnswers] = useState<any>({});
+  const [uploadedFiles, setUploadedFiles] = useState<any>({});
+  const [loadingQuestions, setLoadingQuestions] = useState<any>({});
+  const [downloadingFiles, setDownloadingFiles] = useState({});
   const [remainingTime, setRemainingTime] = useState('');
   const [isSubmitted, setIsSubmitted] = useState(false);
-  const [loadingAssignment, setLoadingAssignment] = useState(true);
+  const [loadingQuiz, setLoadingQuiz] = useState(true);
+  const [progress, setProgress] = useState(0);
 
   let [fontsLoaded, fontError] = useFonts({
     Raleway_600SemiBold,
@@ -68,26 +36,24 @@ export default function AssignmentContentScreen() {
     Nunito_600SemiBold,
   });
 
-  const fetchAssignmentDetails = useCallback(async () => {
-    setLoadingAssignment(true);
+  const fetchQuizDetails = useCallback(async () => {
+    setLoadingQuiz(true);
     try {
-      const response = await axiosInstance.get<{ data: Assignment }>(
-        `v1/student/courses/${courseId}/course-content-categories/${contentCategoryId}/assignments/${assignmentId}`
-      );
-      const assignmentData = response.data.data;
-      setAssignment(assignmentData);
-      setIsSubmitted(assignmentData.submitted_at != null);
+      const response = await axiosInstance.get(`v1/student/courses/${courseId}/course-content-categories/${contentCategoryId}/quizzes/${quizId}`);
+      const quizData = response.data.data;
+      setQuiz(quizData);
+      setIsSubmitted(quizData.submitted_at != null);
 
-      const prevAnswers: { [key: string]: string[] } = {};
-      const prevUploadedFiles: { [key: string]: UploadedFile[] } = {};
+      const prevAnswers:any = {};
+      const prevUploadedFiles:any = {};
 
-      assignmentData.questions.forEach(question => {
+      quizData.questions.forEach((question:any) => {
         if (question.submitted_answers.length > 0) {
           if (question.type === "ONE_CHOICE" || question.type === "TWO_CHOICES") {
             const submittedAnswer = JSON.parse(question.submitted_answers[0].text);
             prevAnswers[question.id.toString()] = submittedAnswer;
           } else if (question.type === "FILES") {
-            const files = question.submitted_answers[0].answer_attachments.map(file => ({
+            const files = question.submitted_answers[0].answer_attachments.map((file:any) => ({
               uri: file.url,
               name: file.name,
               type: 'application/octet-stream',
@@ -103,28 +69,33 @@ export default function AssignmentContentScreen() {
       setSelectedAnswers(prevAnswers);
       setUploadedFiles(prevUploadedFiles);
     } catch (error) {
-      console.error("Error fetching assignment details:", error);
+      console.error("Error fetching quiz details:", error);
     } finally {
       setFetchingDetails(false);
-      setLoadingAssignment(false);
+      setLoadingQuiz(false);
     }
-  }, [courseId, contentCategoryId, assignmentId]);
+  }, [courseId, contentCategoryId, quizId]);
 
   useEffect(() => {
-    fetchAssignmentDetails();
-  }, [fetchAssignmentDetails]);
+    fetchQuizDetails();
+  }, [fetchQuizDetails]);
 
   useEffect(() => {
     const calculateRemainingTime = () => {
-      if (!assignment?.dead_line) return;
+      if (!quiz?.dead_line) return;
 
-      const deadline = new Date(assignment.dead_line);
+      const deadline = new Date(quiz.dead_line);
       const now = new Date();
       const timeDiff = deadline.getTime() - now.getTime();
+      const totalDuration = deadline.getTime() - new Date(quiz.created_at).getTime();
 
       if (timeDiff <= 0) {
         setRemainingTime("Ended");
+        setProgress(1);
       } else {
+        const progress = 1 - (timeDiff / totalDuration);
+        setProgress(progress);
+
         const hours = Math.floor(timeDiff / (1000 * 60 * 60));
         const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
         const seconds = Math.floor((timeDiff % (1000 * 60)) / 1000);
@@ -134,18 +105,18 @@ export default function AssignmentContentScreen() {
 
     const interval = setInterval(calculateRemainingTime, 1000);
     return () => clearInterval(interval);
-  }, [assignment?.dead_line]);
+  }, [quiz?.dead_line, quiz?.created_at]);
 
-  const submitAnswer = useCallback(async (questionId: string | number, answers: string[]) => {
+  const submitAnswer = useCallback(async (questionId:any, answers:any) => {
     if (remainingTime === "Ended" || isSubmitted) {
-      Alert.alert('Error', 'The assignment cannot be modified.');
+      Alert.alert('Error', 'The quiz cannot be modified.');
       return;
     }
 
-    setLoadingQuestions(prev => ({ ...prev, [questionId.toString()]: true }));
+    setLoadingQuestions((prev:any) => ({ ...prev, [questionId.toString()]: true }));
     try {
       const formData = new FormData();
-      answers.forEach((answer, index) => formData.append(`text[${index}]`, answer));
+      answers.forEach((answer:any, index:any) => formData.append(`text[${index}]`, answer));
       await axiosInstance.post(`v1/student/questions/${questionId}/answer`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
@@ -154,13 +125,13 @@ export default function AssignmentContentScreen() {
       console.error(`Error submitting answer for question ${questionId}:`, error);
       Alert.alert('Error', 'Failed to submit answer. Please try again.');
     } finally {
-      setLoadingQuestions(prev => ({ ...prev, [questionId.toString()]: false }));
+      setLoadingQuestions((prev:any) => ({ ...prev, [questionId.toString()]: false }));
     }
   }, [remainingTime, isSubmitted]);
 
-  const handleFileUpload = async (questionId: string | number) => {
+  const handleFileUpload = async (questionId:any) => {
     if (remainingTime === "Ended" || isSubmitted) {
-      Alert.alert('Error', 'The assignment cannot be modified.');
+      Alert.alert('Error', 'The quiz cannot be modified.');
       return;
     }
 
@@ -168,14 +139,14 @@ export default function AssignmentContentScreen() {
       let result = await DocumentPicker.getDocumentAsync({ type: "*/*", multiple: true });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
-        setLoadingQuestions(prev => ({ ...prev, [questionId.toString()]: true }));
-        const newFiles: UploadedFile[] = result.assets.map(asset => ({
+        setLoadingQuestions((prev:any) => ({ ...prev, [questionId.toString()]: true }));
+        const newFiles = result.assets.map(asset => ({
           uri: asset.uri,
           name: asset.name,
           type: asset.mimeType || '',
         }));
 
-        setUploadedFiles(prev => {
+        setUploadedFiles((prev:any) => {
           const updated = {
             ...prev,
             [questionId.toString()]: [...(prev[questionId.toString()] || []), ...newFiles]
@@ -183,13 +154,13 @@ export default function AssignmentContentScreen() {
           return updated;
         });
 
-        const formData = new FormData();
-        newFiles.forEach((file, index) => {
+        const formData:any = new FormData();
+        newFiles.forEach((file:any, index:any) => {
           formData.append(`answer_attachments[${index}]`, {
             uri: file.uri,
             type: file.type,
             name: file.name,
-          } as any);
+          });
         });
 
         formData.append('id', questionId.toString());
@@ -206,7 +177,7 @@ export default function AssignmentContentScreen() {
           console.error(`Error uploading files for question ${questionId}:`, error);
           Alert.alert('Error', 'Failed to upload files. Please try again.');
         } finally {
-          setLoadingQuestions(prev => ({ ...prev, [questionId.toString()]: false }));
+          setLoadingQuestions((prev:any) => ({ ...prev, [questionId.toString()]: false }));
         }
       } else {
         console.log("File selection cancelled or failed");
@@ -216,7 +187,7 @@ export default function AssignmentContentScreen() {
     }
   };
 
-  const handleFileDownload = async (fileUrl: string, fileName: string) => {
+  const handleFileDownload = async (fileUrl:any, fileName:any) => {
     const fileUri = FileSystem.documentDirectory + fileName;
     setDownloadingFiles(prev => ({ ...prev, [fileName]: true }));
 
@@ -229,27 +200,27 @@ export default function AssignmentContentScreen() {
       Alert.alert('Error', 'Failed to download file. Please try again.');
     } finally {
       setDownloadingFiles(prev => {
-        const newDownloading = { ...prev };
+        const newDownloading:any = { ...prev };
         delete newDownloading[fileName];
         return newDownloading;
       });
     }
   };
 
-  const handleRemoveFile = (questionId: string | number, fileIndex: number) => {
+  const handleRemoveFile = (questionId:any, fileIndex:any) => {
     if (remainingTime === "Ended" || isSubmitted) {
-      Alert.alert('Error', 'The assignment cannot be modified.');
+      Alert.alert('Error', 'The quiz cannot be modified.');
       return;
     }
 
-    setUploadedFiles(prev => {
-      const updated = { ...prev };
-      updated[questionId.toString()] = updated[questionId.toString()].filter((_, index) => index !== fileIndex);
+    setUploadedFiles((prev:any) => {
+      const updated:any = { ...prev };
+      updated[questionId.toString()] = updated[questionId.toString()].filter((_:any, index:any) => index !== fileIndex);
       return updated;
     });
   };
 
-  const renderFilePreview = (file: UploadedFile, questionId: string | number, fileIndex: number) => {
+  const renderFilePreview = (file:any, questionId:any, fileIndex:any) => {
     return (
       <View style={styles.filePreviewContainer} key={file.uri}>
         <Text style={styles.filePreviewName}>{file.name}</Text>
@@ -262,8 +233,8 @@ export default function AssignmentContentScreen() {
     );
   };
 
-  const renderAttachment = (attachment: any) => {
-    const isImage = (url: string) => {
+  const renderAttachment = (attachment:any) => {
+    const isImage = (url:any) => {
       const imageExtensions = ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp'];
       return imageExtensions.some(ext => url.toLowerCase().endsWith(ext));
     };
@@ -294,16 +265,16 @@ export default function AssignmentContentScreen() {
       <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
         <Ionicons name="arrow-back" size={24} color="black" />
       </TouchableOpacity>
-      <Text style={[styles.headerTitle, { color: 'black' }]}>Assignment</Text>
+      <Text style={[styles.headerTitle, { color: 'black' }]}>Quiz</Text>
       <View style={styles.placeholder} />
     </View>
   );
 
-  const handleAnswerChange = (questionId: string | number, answer: string, index: number = 0) => {
+  const handleAnswerChange = (questionId:any, answer:any, index = 0) => {
     if (isSubmitted) return;
 
-    setSelectedAnswers(prev => {
-      const updated = { ...prev };
+    setSelectedAnswers((prev:any) => {
+      const updated:any = { ...prev };
       const currentAnswers = Array.isArray(updated[questionId.toString()])
         ? [...updated[questionId.toString()]]
         : [];
@@ -340,17 +311,17 @@ export default function AssignmentContentScreen() {
 
   const renderQuestions = () => (
     <View style={styles.questionsContainer}>
-      {assignment?.questions.map((question: any, index: any) => (
+      {quiz?.questions.map((question:any, index:any) => (
         <View key={question.id} style={styles.questionCard}>
           <Text style={styles.questionTitle}>{question.title}</Text>
-          {question.question_attatchments.map((attachment: any) => renderAttachment(attachment))}
+          {question.question_attatchments.map((attachment:any) => renderAttachment(attachment))}
           {question.submitted_answers[0]?.result !== null && (
             <Text style={styles.resultText}>
               Result: {question.submitted_answers[0]?.result} / {question.total_marks}
             </Text>
           )}
           {question.type === "ONE_CHOICE" || question.type === "TWO_CHOICES" ? (
-            question.options.map((option: any, optionIndex: any) => {
+            question.options.map((option:any, optionIndex:any) => {
               const isSelected = Array.isArray(selectedAnswers[question.id.toString()]) &&
                 selectedAnswers[question.id.toString()].includes(option);
               const isDisabled = remainingTime === "Ended" || isSubmitted || loadingQuestions[question.id.toString()];
@@ -408,7 +379,7 @@ export default function AssignmentContentScreen() {
                   <Text style={styles.fileUploadButtonText}>Upload File</Text>
                 )}
               </TouchableOpacity>
-              {uploadedFiles[question.id.toString()] && uploadedFiles[question.id.toString()].map((file, fileIndex) => renderFilePreview(file, question.id, fileIndex))}
+              {uploadedFiles[question.id.toString()] && uploadedFiles[question.id.toString()].map((file:any, fileIndex:any) => renderFilePreview(file, question.id, fileIndex))}
             </View>
           ) : null}
         </View>
@@ -416,21 +387,20 @@ export default function AssignmentContentScreen() {
     </View>
   );
 
-  const handleSubmitAssignment = async () => {
+  const handleSubmitQuiz = async () => {
     if (remainingTime === "Ended" || isSubmitted) {
-      Alert.alert('Error', 'The assignment cannot be submitted.');
+      Alert.alert('Error', 'The quiz cannot be submitted.');
       return;
     }
 
     try {
-      await axiosInstance.patch(`v1/student/courses/${courseId}/course-content-categories/${contentCategoryId}/assignments/${assignmentId}/submit`);
-      Alert.alert('Success', 'Assignment submitted successfully.');
+      await axiosInstance.patch(`v1/student/courses/${courseId}/course-content-categories/${contentCategoryId}/quizzes/${quizId}/submit`);
+      Alert.alert('Success', 'Quiz submitted successfully.');
       setIsSubmitted(true);
-      // Optionally, navigate back or disable further interactions
       router.back();
     } catch (error) {
-      console.error('Error submitting assignment:', error);
-      Alert.alert('Error', 'Failed to submit assignment. Please try again.');
+      console.error('Error submitting quiz:', error);
+      Alert.alert('Error', 'Failed to submit quiz. Please try again.');
     }
   };
 
@@ -440,36 +410,47 @@ export default function AssignmentContentScreen() {
 
   return (
     <>
-      {loading || fetchingDetails || loadingAssignment ? (
+      {loading || fetchingDetails || loadingQuiz ? (
         <Loader />
       ) : (
         <View style={styles.container}>
           {renderHeader()}
           <ScrollView showsVerticalScrollIndicator={false}>
-            <View style={styles.assignmentContainer}>
-              <Text style={styles.assignmentTitle}>{assignment?.title}</Text>
-              <Text style={styles.assignmentDescription}>{assignment?.description}</Text>
-              <Text style={styles.assignmentDeadline}>
-                Deadline: {new Date(assignment?.dead_line ?? "").toLocaleString()}
+            <View style={styles.quizContainer}>
+              <Text style={styles.quizTitle}>{quiz?.title}</Text>
+              <Text style={styles.quizDescription}>{quiz?.description}</Text>
+              <Text style={styles.quizDeadline}>
+                Deadline: {new Date(quiz?.dead_line ?? "").toLocaleString()}
                 {" "}
                 <Text style={[styles.remainingTime, remainingTime === "Ended" && styles.endedTime]}>
                   {remainingTime ? `(${remainingTime})` : ''}
                 </Text>
               </Text>
-              <Text style={styles.assignmentMarks}>Total Marks: {assignment?.total_marks}</Text>
+              <Text style={styles.quizMarks}>Total Marks: {quiz?.total_marks}</Text>
               {isSubmitted && (
                 <Text style={styles.submittedMessage}>
-                  Assignment submitted on: {new Date(assignment?.submitted_at ?? "").toLocaleString()}
+                  Quiz submitted on: {new Date(quiz?.submitted_at ?? "").toLocaleString()}
                 </Text>
               )}
+              <View style={styles.progressBarContainer}>
+                <ProgressBarAndroid
+                  styleAttr="Horizontal"
+                  indeterminate={false}
+                  progress={progress}
+                  color={remainingTime === "Ended" ? "red" : "#007AFF"}
+                />
+                <Text style={styles.progressText}>
+                  {Math.round(progress * 100)}% Time Elapsed
+                </Text>
+              </View>
               {renderQuestions()}
               {!isSubmitted && (
                 <TouchableOpacity
                   style={[styles.submitButton, (remainingTime === "Ended" || isSubmitted) && styles.disabledSubmitButton]}
-                  onPress={handleSubmitAssignment}
+                  onPress={handleSubmitQuiz}
                   disabled={remainingTime === "Ended" || isSubmitted}
                 >
-                  <Text style={styles.submitButtonText}>Submit Assignment</Text>
+                  <Text style={styles.submitButtonText}>Submit Quiz</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -506,23 +487,23 @@ const styles = StyleSheet.create({
   placeholder: {
     width: 40,
   },
-  assignmentContainer: {
+  quizContainer: {
     padding: 16,
   },
-  assignmentTitle: {
+  quizTitle: {
     fontSize: 24,
     fontWeight: 'bold',
     color: 'black',
     fontFamily: "Raleway_700Bold",
     marginBottom: 10,
   },
-  assignmentDescription: {
+  quizDescription: {
     fontSize: 14,
     color: '#666',
     fontFamily: "Nunito_400Regular",
     marginBottom: 10,
   },
-  assignmentDeadline: {
+  quizDeadline: {
     fontSize: 14,
     color: '#666',
     fontFamily: "Nunito_400Regular",
@@ -533,7 +514,7 @@ const styles = StyleSheet.create({
     color: '#007AFF',
     fontFamily: "Nunito_600SemiBold",
   },
-  assignmentMarks: {
+  quizMarks: {
     fontSize: 14,
     color: '#666',
     fontFamily: "Nunito_400Regular",
@@ -646,16 +627,6 @@ const styles = StyleSheet.create({
   removeButton: {
     marginLeft: 10,
   },
-  loadingOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(255, 255, 255, 0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   attachmentImage: {
     width: '100%',
     height: 200,
@@ -688,5 +659,14 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 10,
     top: 10,
+  },
+  progressBarContainer: {
+    marginVertical: 20,
+  },
+  progressText: {
+    textAlign: 'center',
+    fontSize: 14,
+    color: '#007AFF',
+    fontFamily: "Nunito_600SemiBold",
   },
 });
