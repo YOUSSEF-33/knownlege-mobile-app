@@ -3,7 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, Image, StyleSheet, Dimensions
 import { router, useLocalSearchParams } from "expo-router";
 import { useFonts, Raleway_600SemiBold, Raleway_700Bold } from "@expo-google-fonts/raleway";
 import { Nunito_400Regular, Nunito_600SemiBold } from "@expo-google-fonts/nunito";
-import { Ionicons } from "@expo/vector-icons";
+import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import useUser from "@/hooks/auth/useUser";
 import Loader from "@/components/loader/loader";
 import axiosInstance from "@/utils/apiServises";
@@ -33,6 +33,7 @@ export default function AnnouncementDetailScreen() {
   const [announcement, setAnnouncement] = useState<Announcement | null>(null);
   const [fetchingDetails, setFetchingDetails] = useState(true);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [imageDimensions, setImageDimensions] = useState<{ width: number, height: number } | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
 
   let [fontsLoaded, fontError] = useFonts({
@@ -56,6 +57,20 @@ export default function AnnouncementDetailScreen() {
     fetchAnnouncementDetails();
   }, [id]);
 
+  useEffect(() => {
+    if (announcement?.gallery && announcement.gallery.length > 0) {
+      Image.getSize(announcement.gallery[0].url, (width, height) => {
+        const aspectRatio = width / height;
+        setImageDimensions({
+          width: SCREEN_WIDTH,
+          height: SCREEN_WIDTH / aspectRatio,
+        });
+      }, (error) => {
+        console.error("Error getting image size:", error);
+      });
+    }
+  }, [announcement]);
+
   if (!fontsLoaded && !fontError) {
     return null;
   }
@@ -63,7 +78,7 @@ export default function AnnouncementDetailScreen() {
   const renderHeader = () => (
     <View style={styles.header}>
       <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-        <Ionicons name="arrow-back" size={24} color="black" />
+        <MaterialIcons name="arrow-back" size={24} color="black" />
       </TouchableOpacity>
       <Text style={styles.headerTitle}>Announcement Details</Text>
       <View style={styles.placeholder} />
@@ -85,7 +100,7 @@ export default function AnnouncementDetailScreen() {
           <Image
             key={image.id}
             source={{ uri: image.url }}
-            style={styles.galleryImage}
+            style={[styles.galleryImage, imageDimensions]}
           />
         ))}
       </ScrollView>
@@ -106,18 +121,6 @@ export default function AnnouncementDetailScreen() {
   const renderAnnouncementContent = () => (
     <View style={styles.contentContainer}>
       <Text style={styles.announcementTitle}>{announcement?.title}</Text>
-      {/* <View style={styles.statsRow}>
-        <View style={styles.statItem}>
-          <Ionicons name="eye-outline" size={16} color="#4CAF50" />
-          <Text style={styles.statText}>{announcement?.read_count} Views</Text>
-        </View>
-        {announcement?.sent_users_count && (
-          <View style={styles.statItem}>
-            <Ionicons name="people-outline" size={16} color="#FFC107" />
-            <Text style={styles.statText}>{announcement.sent_users_count} Recipients</Text>
-          </View>
-        )}
-      </View> */}
       <RenderHtml
         contentWidth={SCREEN_WIDTH - 32}
         source={{ html: announcement?.content || '' }}
@@ -169,13 +172,11 @@ const styles = StyleSheet.create({
     width: 40,
   },
   imageGalleryContainer: {
-    height: SCREEN_HEIGHT * 0.4,
     position: 'relative',
   },
   galleryImage: {
     width: SCREEN_WIDTH,
-    height: SCREEN_HEIGHT * 0.4,
-    resizeMode: 'cover',
+    resizeMode: 'contain',
   },
   paginationDots: {
     flexDirection: 'row',
@@ -191,7 +192,7 @@ const styles = StyleSheet.create({
     height: 8,
     borderRadius: 4,
     marginHorizontal: 4,
-    marginTop:-25,
+    marginTop: -25,
   },
   contentContainer: {
     backgroundColor: 'white',
@@ -201,26 +202,10 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   announcementTitle: {
-    fontSize:24,
+    fontSize: 24,
     fontWeight: 'bold',
     color: 'black',
     fontFamily: "Raleway_700Bold",
     marginBottom: 10,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'flex-start',
-    marginBottom: 10,
-  },
-  statItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginRight: 20,
-  },
-  statText: {
-    marginLeft: 5,
-    fontSize: 14,
-    fontFamily: "Nunito_600SemiBold",
-    color: '#666',
   },
 });

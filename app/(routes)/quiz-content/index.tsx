@@ -3,13 +3,16 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Dimensions, Image
 import { router, useLocalSearchParams } from "expo-router";
 import { useFonts, Raleway_600SemiBold, Raleway_700Bold } from "@expo-google-fonts/raleway";
 import { Nunito_400Regular, Nunito_500Medium, Nunito_700Bold, Nunito_600SemiBold } from "@expo-google-fonts/nunito";
-import { Ionicons } from "@expo/vector-icons";
+import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import useUser from "@/hooks/auth/useUser";
 import Loader from "@/components/loader/loader";
 import axiosInstance from "@/utils/apiServises";
 import * as DocumentPicker from 'expo-document-picker';
 import FileCard from "@/components/cards/fileCard";
 import * as FileSystem from 'expo-file-system';
+import RenderHtml from 'react-native-render-html';
+import * as Progress from 'react-native-progress';
+import { usePreventScreenshot } from 'react-native-screenshot-prevent';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -226,7 +229,7 @@ export default function QuizContentScreen() {
         <Text style={styles.filePreviewName}>{file.name}</Text>
         {!isSubmitted && (
           <TouchableOpacity onPress={() => handleRemoveFile(questionId, fileIndex)} style={styles.removeButton}>
-            <Ionicons name="close-circle" size={24} color="red" />
+            <MaterialIcons name="circle" size={24} color="red" />
           </TouchableOpacity>
         )}
       </View>
@@ -263,7 +266,7 @@ export default function QuizContentScreen() {
   const renderHeader = () => (
     <View style={[styles.header, { backgroundColor: '#fff' }]}>
       <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-        <Ionicons name="arrow-back" size={24} color="black" />
+      <MaterialIcons name="arrow-back" size={24} color="black" />
       </TouchableOpacity>
       <Text style={[styles.headerTitle, { color: 'black' }]}>Quiz</Text>
       <View style={styles.placeholder} />
@@ -315,11 +318,12 @@ export default function QuizContentScreen() {
         <View key={question.id} style={styles.questionCard}>
           <Text style={styles.questionTitle}>{question.title}</Text>
           {question.question_attatchments.map((attachment:any) => renderAttachment(attachment))}
-          {question.submitted_answers[0]?.result !== null && (
+          {/* Hiding the result section */}
+          {/* {question.submitted_answers[0]?.result !== null && (
             <Text style={styles.resultText}>
               Result: {question.submitted_answers[0]?.result} / {question.total_marks}
             </Text>
-          )}
+          )} */}
           {question.type === "ONE_CHOICE" || question.type === "TWO_CHOICES" ? (
             question.options.map((option:any, optionIndex:any) => {
               const isSelected = Array.isArray(selectedAnswers[question.id.toString()]) &&
@@ -418,7 +422,10 @@ export default function QuizContentScreen() {
           <ScrollView showsVerticalScrollIndicator={false}>
             <View style={styles.quizContainer}>
               <Text style={styles.quizTitle}>{quiz?.title}</Text>
-              <Text style={styles.quizDescription}>{quiz?.description}</Text>
+              <RenderHtml
+                contentWidth={SCREEN_WIDTH - 32}
+                source={{ html: quiz?.description || '' }}
+              />
               <Text style={styles.quizDeadline}>
                 Deadline: {new Date(quiz?.dead_line ?? "").toLocaleString()}
                 {" "}
@@ -433,11 +440,12 @@ export default function QuizContentScreen() {
                 </Text>
               )}
               <View style={styles.progressBarContainer}>
-                <ProgressBarAndroid
-                  styleAttr="Horizontal"
-                  indeterminate={false}
-                  progress={progress}
+                <Progress.Bar
+                  progress={progress} 
+                  width={null} // Auto width 
                   color={remainingTime === "Ended" ? "red" : "#007AFF"}
+                  borderRadius={4}
+                  height={10}
                 />
                 <Text style={styles.progressText}>
                   {Math.round(progress * 100)}% Time Elapsed

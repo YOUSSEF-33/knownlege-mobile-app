@@ -69,7 +69,9 @@ export default function NotificationScreen() {
         <Text style={styles.notificationTitle}>{item.title}</Text>
         {!item.is_read && <Text style={styles.newTag}>New</Text>}
       </View>
-      <Text style={styles.notificationText}>{item.content}</Text>
+      <Text style={styles.notificationText}>
+        {item.content.length > 100 ? `${item.content.substring(0, 100)}...` : item.content}
+      </Text>
       <Text style={styles.notificationDate}>
         {new Date(lastUpdateTime).toLocaleString()}
       </Text>

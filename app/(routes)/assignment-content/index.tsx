@@ -3,7 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Dimensions, Image
 import { router, useLocalSearchParams } from "expo-router";
 import { useFonts, Raleway_600SemiBold, Raleway_700Bold } from "@expo-google-fonts/raleway";
 import { Nunito_400Regular, Nunito_500Medium, Nunito_700Bold, Nunito_600SemiBold } from "@expo-google-fonts/nunito";
-import { Ionicons } from "@expo/vector-icons";
+import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import useUser from "@/hooks/auth/useUser";
 import Loader from "@/components/loader/loader";
 import axiosInstance from "@/utils/apiServises";
@@ -255,7 +255,7 @@ export default function AssignmentContentScreen() {
         <Text style={styles.filePreviewName}>{file.name}</Text>
         {!isSubmitted && (
           <TouchableOpacity onPress={() => handleRemoveFile(questionId, fileIndex)} style={styles.removeButton}>
-            <Ionicons name="close-circle" size={24} color="red" />
+            <MaterialIcons name="close-circle" size={24} color="red" />
           </TouchableOpacity>
         )}
       </View>
@@ -292,7 +292,7 @@ export default function AssignmentContentScreen() {
   const renderHeader = () => (
     <View style={[styles.header, { backgroundColor: '#fff' }]}>
       <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-        <Ionicons name="arrow-back" size={24} color="black" />
+        <MaterialIcons name="arrow-back" size={24} color="black" />
       </TouchableOpacity>
       <Text style={[styles.headerTitle, { color: 'black' }]}>Assignment</Text>
       <View style={styles.placeholder} />
